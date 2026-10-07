@@ -83,6 +83,24 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .flow-steps li.current{font-weight:700;color:var(--rose)}
 .flow-done{margin-top:18px}
 
+/* gift box */
+.gift-wrap{margin-top:34px;width:100%;display:flex;flex-direction:column;align-items:center}
+.gpic{display:none;background:#fff;padding:10px 10px 34px;border-radius:6px;box-shadow:0 14px 30px -12px rgba(156,58,84,.6);transform:rotate(-3deg);width:min(280px,76vw);margin-bottom:calc(min(300px,80vw)*-.34);position:relative;z-index:1}
+.gpic.on{display:block;animation:pop .8s cubic-bezier(.2,1.4,.4,1)}
+.gpic img{display:block;width:100%;border-radius:2px}
+.gift{position:relative;width:min(300px,80vw);aspect-ratio:1;z-index:2;transition:filter .4s}
+.gift.locked{filter:grayscale(.55) brightness(.95)}
+.gift.shake{animation:shake .45s}
+.gbox,.glid{position:absolute;left:50%;transform:translateX(-50%);background:linear-gradient(#f48fb1,#e0648b);border:2px solid var(--rose)}
+.gbox{bottom:0;width:80%;height:58%;border-radius:0 0 14px 14px}
+.glid{bottom:56%;width:90%;height:20%;border-radius:12px;transition:transform .9s cubic-bezier(.3,1.4,.5,1),opacity .9s}
+.gbox::after,.glid::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:18%;transform:translateX(-50%);background:#fff3ea}
+.gbow{position:absolute;left:50%;bottom:78%;transform:translateX(-50%);font-size:4.2rem;line-height:1;z-index:2}
+.glock{position:absolute;left:50%;top:70%;transform:translate(-50%,-50%);font-size:3rem;z-index:3;transition:.5s;filter:drop-shadow(0 3px 3px rgba(0,0,0,.3))}
+.gift.open .glid{transform:translate(-50%,-140%) rotate(-16deg);opacity:0}
+.gift.open .glock{opacity:0;transform:translate(-50%,-50%) scale(2)}
+.gift:not(.locked):not(.open){animation:bob 2.2s ease-in-out infinite}
+
 /* letter */
 .paper{max-width:520px;padding:38px 30px;text-align:left;font-size:1.05rem;line-height:1.85;position:relative}
 .paper p{margin:0 0 1em;opacity:0;transform:translateY(10px);animation:line .8s ease forwards}
@@ -195,7 +213,7 @@ body.blooming #sky{display:none}
 @media (prefers-reduced-motion:reduce){
   body{animation:none!important}
   .fh{display:none}
-  .item .em,#cake,.flame{animation:none!important}
+  .item .em,#cake,.flame,.gift{animation:none!important}
   .burst{animation:burst-fade .6s ease-out forwards!important}
   .fl{transform:none}
   .paper p,.words span,.pc{opacity:1;transform:none;animation:none}
@@ -241,6 +259,15 @@ body.blooming #sky{display:none}
       <li data-flow-step="flower">Enjoy the flowers, then continue to the cake.</li>
       <li data-flow-step="cake">Make a wish to finish.</li>
     </ol>
+  </div>
+  <div class="gift-wrap">
+    <div class="gpic" id="gpic"><img id="gpicImg" alt="A birthday surprise" draggable="false"></div>
+    <button class="gift locked" id="gift" aria-label="Gift box">
+      <span class="gbox"></span>
+      <span class="glid"><span class="gbow">🎀</span></span>
+      <span class="glock">🔒</span>
+    </button>
+    <p class="hint" id="giftHint"></p>
   </div>
 </section>
 
@@ -341,7 +368,8 @@ const CFG = {
   wish: "May your every wish come true 💗",
   notifyTopic: "DNS_Bday_19_by-MJLB",      // phone alert via ntfy.sh, e.g. "maria-bday-x7k2q9" (long + random!)
   emailEndpoint: "",    // optional email via Formspree, e.g. "https://formspree.io/f/xxxxxx"
-  photos: ["photos/1.jpg", "photos/2.jpg", "photos/3.jpg"]                              // e.g. ["photos/1.jpg","photos/2.jpg","photos/3.jpg"]
+  photos: ["photos/1.jpg", "photos/2.jpg", "photos/3.jpg"],                              // e.g. ["photos/1.jpg","photos/2.jpg","photos/3.jpg"]
+  giftPhoto: "photos/4.jpg"    // shown when the gift box is opened (put 4.jpg next to index.html, or use "photos/4.jpg")
 };
 /* ====================== */
 const $=id=>document.getElementById(id), n=s=>s.replace(/\{name\}/g,CFG.name);
@@ -403,7 +431,11 @@ function renderFlowMenu(){
     "Step 4 of 4: Make a wish on the cake.",
     "All steps complete. Happy birthday! 🎂"
   ];
-  $("flowStatus").textContent=messages[flowProgress]
+  $("flowStatus").textContent=messages[flowProgress];
+  /* gift box: unlocked only when all 4 steps are done */
+  const allDone=flowProgress>=flowOrder.length,g=$("gift");
+  g.classList.toggle("locked",!allDone);
+  $("giftHint").textContent=g.classList.contains("open")?"Happy birthday 💗":allDone?"Tap the gift to open it 🎁":"Finish all 4 steps to unlock your gift 🔒"
 }
 function completeFlowStep(step){
   if(flowOrder[flowProgress]!==step)return;
@@ -546,6 +578,18 @@ $("aud").onended=()=>{$("seek").value=0};
 $("aud").ontimeupdate=()=>{const a=$("aud");if(a.duration)$("seek").value=a.currentTime/a.duration*1000};
 $("seek").oninput=()=>{const a=$("aud");if(a.duration)a.currentTime=$("seek").value/1000*a.duration};
 $("vinyl").onclick=()=>{if(!$("player").hidden&&$("player").style.visibility!=="hidden")$("playBtn").click()};
+/* gift box */
+$("gift").onclick=()=>{
+  const g=$("gift");
+  if(g.classList.contains("locked")){
+    g.classList.remove("shake");void g.offsetWidth;g.classList.add("shake");
+    $("giftHint").textContent="Still locked 🔒 finish the song, letter, flowers & cake first";
+    return}
+  if(g.classList.contains("open"))return;
+  $("gpicImg").src=CFG.giftPhoto;
+  g.classList.add("open");$("gpic").classList.add("on");
+  $("giftHint").textContent="Happy birthday 💗";
+  for(let i=0;i<5;i++)setTimeout(()=>burst(innerWidth*(.2+Math.random()*.6),innerHeight*(.3+Math.random()*.4),12),i*200)};
 /* her wish -> sent to you */
 function sendWish(w){
   try{
